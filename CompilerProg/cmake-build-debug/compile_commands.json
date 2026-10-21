@@ -4,11 +4,5 @@
   "command": "\"C:\\PROGRA~1\\JetBrains\\CLion 2026.1.2\\bin\\mingw\\bin\\g++.exe\" -g -std=gnu++20 -fdiagnostics-color=always -o CMakeFiles\\CompilerProg.dir\\main.cpp.obj -c C:\\Users\\DELL\\CLionProjects\\CompilerProg\\main.cpp",
   "file": "C:/Users/DELL/CLionProjects/CompilerProg/main.cpp",
   "output": "C:/Users/DELL/CLionProjects/CompilerProg/cmake-build-debug/CMakeFiles/CompilerProg.dir/main.cpp.obj"
-},
-{
-  "directory": "C:/Users/DELL/CLionProjects/CompilerProg/cmake-build-debug",
-  "command": "\"C:\\PROGRA~1\\JetBrains\\CLion 2026.1.2\\bin\\mingw\\bin\\g++.exe\" -g -std=gnu++20 -fdiagnostics-color=always -o CMakeFiles\\CompilerProg.dir\\Tokenization.cpp.obj -c C:\\Users\\DELL\\CLionProjects\\CompilerProg\\Tokenization.cpp",
-  "file": "C:/Users/DELL/CLionProjects/CompilerProg/Tokenization.cpp",
-  "output": "C:/Users/DELL/CLionProjects/CompilerProg/cmake-build-debug/CMakeFiles/CompilerProg.dir/Tokenization.cpp.obj"
 }
 ]

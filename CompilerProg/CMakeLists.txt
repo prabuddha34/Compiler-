@@ -3,7 +3,4 @@ project(CompilerProg)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(CompilerProg main.cpp
-        Tokenization.cpp
-        Tokenization.h
-)
+add_executable(CompilerProg main.cpp)

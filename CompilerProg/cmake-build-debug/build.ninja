@@ -57,14 +57,6 @@ build CMakeFiles/CompilerProg.dir/main.cpp.obj: CXX_COMPILER__CompilerProg_unsca
   OBJECT_FILE_DIR = CMakeFiles\CompilerProg.dir
   TARGET_SUPPORT_DIR = CMakeFiles\CompilerProg.dir
 
-build CMakeFiles/CompilerProg.dir/Tokenization.cpp.obj: CXX_COMPILER__CompilerProg_unscanned_Debug C$:/Users/DELL/CLionProjects/CompilerProg/Tokenization.cpp || cmake_object_order_depends_target_CompilerProg
-  CONFIG = Debug
-  DEP_FILE = CMakeFiles\CompilerProg.dir\Tokenization.cpp.obj.d
-  FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
-  OBJECT_DIR = CMakeFiles\CompilerProg.dir
-  OBJECT_FILE_DIR = CMakeFiles\CompilerProg.dir
-  TARGET_SUPPORT_DIR = CMakeFiles\CompilerProg.dir
-
 
 # =============================================================================
 # Link build statements for EXECUTABLE target CompilerProg
@@ -73,7 +65,7 @@ build CMakeFiles/CompilerProg.dir/Tokenization.cpp.obj: CXX_COMPILER__CompilerPr
 #############################################
 # Link the executable CompilerProg.exe
 
-build CompilerProg.exe: CXX_EXECUTABLE_LINKER__CompilerProg_Debug CMakeFiles/CompilerProg.dir/main.cpp.obj CMakeFiles/CompilerProg.dir/Tokenization.cpp.obj
+build CompilerProg.exe: CXX_EXECUTABLE_LINKER__CompilerProg_Debug CMakeFiles/CompilerProg.dir/main.cpp.obj
   CONFIG = Debug
   FLAGS = -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32

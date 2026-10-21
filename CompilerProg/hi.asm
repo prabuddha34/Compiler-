@@ -15,3 +15,14 @@ _start:
     mov rax, 60      ; sys_exit
     xor rdi, rdi     ; exit code 0
     syscall
+_start:
+   mov rax,1
+   mov rdi,1
+   mov rsi,msg
+   mov rdx,len
+   syscall
+
+   mov rax,120
+   xor rdi,rdi
+   syscall
+   
