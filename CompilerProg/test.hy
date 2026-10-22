@@ -1,10 +1,6 @@
-let x = 145;
-let y = 2;
-let c=min(x,y);
-let d=sqrt(c);
-let fac=fact(3);
-let gcdval=gcd(20,18);
-let primecheck=prime(3);
-let palincheck=palindrome(141);
-let nfibo=n_fibonacci(10);
-exit(nfibo);
+let inputA=input().int;
+let inputB=input().int;
+
+let resultCal=inputA+inputB;
+
+exit(resultCal);

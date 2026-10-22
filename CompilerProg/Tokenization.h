@@ -13,7 +13,16 @@ enum class TokenType { //for now i have 3 things return (int) and a semicolon !
     int_literal, //int one
     semicolon, exit, plus, minus, mul, division, //so i am just want to do the airthmetic ops in here!
     open_par, close_par, identifier, let, equal, sum, even, comma ,abs,max,min,sqrt,fact,gcd,prime,palindrome,
-    n_fibonacci
+    n_fibonacci,random,mid_val,digit_sum,time_utc,count_digits,power,if_keyword,else_keyword,open_brace,
+close_brace,
+assign,           // = (<var> = <expr>
+equal_equal,     // == (like the equal function i have )
+not_equal,       // != ( there like vice versa of my equal function!
+less,            // <
+greater,         // >
+less_equal,      // <=
+greater_equal,
+    input,dot
     //i forgot this !sorry ! 😢//i am a noob lol !
 };
 
@@ -75,6 +84,11 @@ public:
                     buff.clear();
                     continue;
                 }
+                else if (buff == "") {
+                    tokens.push_back(Token{TokenType::min});
+                    buff.clear();
+                    continue;
+                }
                 else if (buff =="n_fibonacci") {
                     tokens.push_back(Token{TokenType::n_fibonacci});//here we will cal the f(n) term for fibonacci
                     buff.clear(); //clears the damn thing out !
@@ -86,8 +100,41 @@ public:
                     buff.clear();
                     continue;
                 }
+                else if (buff =="time_utc") {
+                    //gets the time_-->in utc
+                    tokens.push_back(Token{TokenType::time_utc});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="if") { //encounters a if keyword then what shall we do ? thats the exact thing i am doing in my paint for rough work!
+                tokens.push_back(Token{TokenType::if_keyword});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="else") { //now for the else statements !
+                    tokens.push_back(Token{TokenType::else_keyword});
+                    buff.clear();
+                    continue;
+                }
+
                 else if (buff == "sqrt") { //helps for the sqrt one !
                     tokens.push_back(Token{TokenType::sqrt});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="mid_val") {
+                    //here gets the mid val mid(n)--> gives n/2 value of it!
+                    tokens.push_back(Token{TokenType::mid_val});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="equal") { //check equal(11,11)-->return 1 if true else 0
+                    tokens.push_back(Token{TokenType::equal});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="power") {//gets the power(a,b)--> a^b output-->a^b
+                    tokens.push_back(Token{TokenType::power});
                     buff.clear();
                     continue;
                 }
@@ -109,6 +156,27 @@ public:
                 else if (buff == "palindrome") { //here we can check for the palindrome number!
                     tokens.push_back(Token{TokenType::palindrome});
                     buff.clear();
+                    continue;
+                }
+                else if (buff == "random") { //to generate random vals!
+                    tokens.push_back(Token{TokenType::random});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff == "digit_sum") { //helps to get the sum of the digits!
+                    tokens.push_back(Token{TokenType::digit_sum});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="input") { //now we are going to add the inputs so it will take it as an string!
+                    tokens.push_back(Token{TokenType::input}); //here the users can take the values !
+                    buff.clear();
+                    continue;
+                }
+                else if (buff == "count_digits") { //count the digits
+                    tokens.push_back(Token{TokenType::count_digits});
+                    buff.clear();
+                    continue;
                 }
                 else {
                     //not a keyword so it is a variable name!
@@ -169,9 +237,78 @@ public:
                 tokens.push_back(Token{TokenType::division});
                 continue;
             }
+            else if (peak().value() == '.') { // . one for the type of the syntax that i want !
+                consume();
+                tokens.push_back(Token{TokenType::dot});
+                continue;
+            }
+
             else if (peak().value() == '=') {
                 consume();
-                tokens.push_back(Token{TokenType::equal}); //so this is the = one for the <expr>that we wanr@
+
+                if (peak().has_value() && peak().value() == '=') {
+                    consume();
+                    tokens.push_back(Token{TokenType::equal_equal});
+                } else {
+                    tokens.push_back(Token{TokenType::assign});
+                }
+
+                continue;
+            }
+
+            else if (peak().value() == '{') {
+                consume();
+                tokens.push_back(Token{TokenType::open_brace});
+                continue;
+            }
+            else if (peak().value() == '}') {
+                consume();
+                tokens.push_back(Token{TokenType::close_brace});
+                continue;
+            }
+            else if (peak().value() == '=') {
+                consume();
+
+                if (peak().has_value() && peak().value() == '=') {
+                    consume();
+                    tokens.push_back(Token{TokenType::equal_equal});
+                } else {
+                    tokens.push_back(Token{TokenType::assign});
+                }
+                continue;
+            }
+            else if (peak().value() == '!') {
+                consume();
+
+                if (peak().has_value() && peak().value() == '=') {
+                    consume();
+                    tokens.push_back(Token{TokenType::not_equal});
+                } else {
+                    std::cerr << "Unexpected '!': expected '!='\n";
+                    std::exit(EXIT_FAILURE);
+                }
+                continue;
+            }
+            else if (peak().value() == '<') {
+                consume();
+
+                if (peak().has_value() && peak().value() == '=') {
+                    consume();
+                    tokens.push_back(Token{TokenType::less_equal});
+                } else {
+                    tokens.push_back(Token{TokenType::less});
+                }
+                continue;
+            }
+            else if (peak().value() == '>') {
+                consume();
+
+                if (peak().has_value() && peak().value() == '=') {
+                    consume();
+                    tokens.push_back(Token{TokenType::greater_equal});
+                } else {
+                    tokens.push_back(Token{TokenType::greater});
+                }
                 continue;
             }
             //check for the ' ' white spaces if white spaces then continue with the work!

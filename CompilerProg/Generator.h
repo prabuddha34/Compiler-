@@ -2,6 +2,7 @@
 #pragma once
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -36,6 +37,67 @@ public:
             // the variable lives at stack slot it->second, rsp points at the top slot
             size_t offset = (m_stack_size - it->second - 1) * 8;
             push("QWORD [rsp + " + std::to_string(offset) + "]");
+        }
+        else if (std::holds_alternative<NodeDigitSum>(expr.var)) {
+            const auto& digit_sum = std::get<NodeDigitSum>(expr.var);
+
+            gen_expr(*digit_sum.expr);
+            pop("rax");
+
+            const size_t id = m_digitsum_count++;
+
+            m_output << "    mov r8, rax\n";
+            m_output << "    mov r9, 0\n";
+            m_output << "    mov r10, 10\n";
+
+            // Convert negative values to unsigned magnitude.
+            // This also handles INT64_MIN.
+            m_output << "    test r8, r8\n";
+            m_output << "    jns digitsum_loop_" << id << "\n";
+            m_output << "    neg r8\n";
+
+            m_output << "digitsum_loop_" << id << ":\n";
+            m_output << "    test r8, r8\n";
+            m_output << "    jz digitsum_done_" << id << "\n";
+
+            m_output << "    mov rax, r8\n";
+            m_output << "    xor rdx, rdx\n";
+            m_output << "    div r10\n";
+
+            m_output << "    add r9, rdx\n";
+            m_output << "    mov r8, rax\n";
+            m_output << "    jmp digitsum_loop_" << id << "\n";
+
+            m_output << "digitsum_done_" << id << ":\n";
+            m_output << "    mov rax, r9\n";
+
+            push("rax");
+        }
+        else if (std::holds_alternative<NodeCountDigits>(expr.var)) {
+            const auto& count = std::get<NodeCountDigits>(expr.var);
+
+            gen_expr(*count.expr);
+            pop("rax");
+
+            m_output << "    mov r8, rax\n";
+            m_output << "    mov r9, 0\n";
+            m_output << "    mov r10, 10\n";
+
+            m_output << "    test r8, r8\n";
+            m_output << "    jns count_digits_loop\n";
+            m_output << "    neg r8\n";
+
+            m_output << "count_digits_loop:\n";
+            m_output << "    inc r9\n";
+            m_output << "    xor rdx, rdx\n";
+            m_output << "    mov rax, r8\n";
+            m_output << "    div r10\n";
+            m_output << "    mov r8, rax\n";
+            m_output << "    test r8, r8\n";
+            m_output << "    jnz count_digits_loop\n";
+
+            m_output << "    mov rax, r9\n";
+            push("rax");
         }
         else if (std::holds_alternative<NodeSum>(expr.var)) {
             const auto& sum_node = std::get<NodeSum>(expr.var);
@@ -75,6 +137,18 @@ public:
             m_output << "    jge abs_done_" << id << "\n";
             m_output << "    neg rax\n";
             m_output << "abs_done_" << id << ":\n";
+
+            push("rax");
+        }
+        else if (std::holds_alternative<NodeMidVal>(expr.var)) {
+            const auto& mid = std::get<NodeMidVal>(expr.var);
+
+            gen_expr(*mid.expr);
+            pop("rax");
+
+            m_output << "    mov rbx, 2\n";
+            m_output << "    cqo\n";
+            m_output << "    idiv rbx\n";
 
             push("rax");
         }
@@ -313,6 +387,52 @@ public:
             m_output << "fib_done_" << id << ":\n";
             push("rax");
         }
+        else if (std::holds_alternative<NodeRandom>(expr.var)) {
+            const auto& random_node = std::get<NodeRandom>(expr.var);
+
+            gen_expr(*random_node.lhs);
+            gen_expr(*random_node.rhs);
+
+            pop("rbx"); // upper bound
+            pop("rax"); // lower bound
+
+            const size_t id = m_random_count++;
+
+            m_output << "    cmp rax, rbx\n";
+            m_output << "    jg random_invalid_" << id << "\n";
+
+            m_output << "    mov r8, rax\n";
+            m_output << "    mov r9, rbx\n";
+            m_output << "    sub r9, r8\n";
+            m_output << "    inc r9\n";             // range size
+
+            m_output << "    mov r10, -1\n";
+            m_output << "    xor rdx, rdx\n";
+            m_output << "    div r9\n";
+            m_output << "    mov r11, rdx\n";       // 2^64 mod range size
+            m_output << "    mov rax, -1\n";
+            m_output << "    sub rax, r11\n";       // largest acceptable threshold
+
+            m_output << "random_retry_" << id << ":\n";
+            m_output << "    rdrand r11\n";
+            m_output << "    jnc random_retry_" << id << "\n";
+            m_output << "    cmp r11, rax\n";
+            m_output << "    ja random_retry_" << id << "\n";
+
+            m_output << "    xor rdx, rdx\n";
+            m_output << "    mov rax, r11\n";
+            m_output << "    div r9\n";
+            m_output << "    add rdx, r8\n";
+            m_output << "    mov rax, rdx\n";
+            m_output << "    jmp random_done_" << id << "\n";
+
+            m_output << "random_invalid_" << id << ":\n";
+            m_output << "    mov rax, 0\n";
+
+            m_output << "random_done_" << id << ":\n";
+            push("rax");
+        }
+
         else if (std::holds_alternative<NodePalindrome>(expr.var)) {
             const auto& palindrome = std::get<NodePalindrome>(expr.var);
 
@@ -357,6 +477,7 @@ public:
         }
 
 
+
         else if (std::holds_alternative<NodeBinary>(expr.var)) {
             const auto& binary = std::get<NodeBinary>(expr.var);
 
@@ -380,9 +501,193 @@ public:
                 m_output << "    cqo\n";
                 m_output << "    idiv rbx\n";
             }
+            else if (binary.op == TokenType::equal_equal ||
+                     binary.op == TokenType::not_equal ||
+                     binary.op == TokenType::less ||
+                     binary.op == TokenType::greater ||
+                     binary.op == TokenType::less_equal ||
+                     binary.op == TokenType::greater_equal) {
+                m_output << "    cmp rax, rbx\n";
+
+                if (binary.op == TokenType::equal_equal) {
+                    m_output << "    sete al\n";
+                }
+                else if (binary.op == TokenType::not_equal) {
+                    m_output << "    setne al\n";
+                }
+                else if (binary.op == TokenType::less) {
+                    m_output << "    setl al\n";
+                }
+                else if (binary.op == TokenType::greater) {
+                    m_output << "    setg al\n";
+                }
+                else if (binary.op == TokenType::less_equal) {
+                    m_output << "    setle al\n";
+                }
+                else if (binary.op == TokenType::greater_equal) {
+                    m_output << "    setge al\n";
+                }
+
+                m_output << "    movzx rax, al\n";
+            }
 
             push("rax");
         }
+        else if (std::holds_alternative<NodeEqual>(expr.var)) {
+            const auto& equal = std::get<NodeEqual>(expr.var);
+
+            gen_expr(*equal.lhs);
+            gen_expr(*equal.rhs);
+
+            pop("rbx");
+            pop("rax");
+
+            m_output << "    cmp rax, rbx\n";
+            m_output << "    sete al\n";
+            m_output << "    movzx rax, al\n";
+
+            push("rax");
+        }
+        else if (std::holds_alternative<NodeTimeUTC>(expr.var)) {
+            m_output << "    sub rsp, 16\n";
+            m_output << "    xor rdi, rdi\n";
+            m_output << "    mov rsi, rsp\n";
+            m_output << "    mov rax, 228\n";
+            m_output << "    syscall\n";
+
+            m_output << "    cmp rax, 0\n";
+            m_output << "    jl time_utc_error\n";
+
+            m_output << "    mov rax, [rsp]\n";
+            m_output << "    add rsp, 16\n";
+            m_output << "    jmp time_utc_done\n";
+
+            m_output << "time_utc_error:\n";
+            m_output << "    add rsp, 16\n";
+            m_output << "    xor rax, rax\n";
+
+            m_output << "time_utc_done:\n";
+
+            push("rax");
+        }
+        else if (std::holds_alternative<NodeCountDigits>(expr.var)) {
+            const auto& count = std::get<NodeCountDigits>(expr.var);
+
+            gen_expr(*count.expr);
+            pop("rax");
+
+            m_output << "    mov r8, rax\n";
+            m_output << "    mov r9, 0\n";
+            m_output << "    mov r10, 10\n";
+
+            m_output << "    test r8, r8\n";
+            m_output << "    jns count_digits_loop\n";
+            m_output << "    neg r8\n";
+
+            m_output << "count_digits_loop:\n";
+            m_output << "    inc r9\n";
+            m_output << "    xor rdx, rdx\n";
+            m_output << "    mov rax, r8\n";
+            m_output << "    div r10\n";
+            m_output << "    mov r8, rax\n";
+            m_output << "    test r8, r8\n";
+            m_output << "    jnz count_digits_loop\n";
+
+            m_output << "    mov rax, r9\n";
+            push("rax");
+        }
+        else if (std::holds_alternative<NodePower>(expr.var)) {
+            const auto& power = std::get<NodePower>(expr.var);
+
+            gen_expr(*power.lhs);
+            gen_expr(*power.rhs);
+
+            pop("rbx"); // exponent
+            pop("rax"); // base
+
+            const size_t id = m_power_count++;
+
+            m_output << "    mov rcx, rbx\n";
+            m_output << "    mov rbx, rax\n";
+            m_output << "    mov rax, 1\n";
+
+            m_output << "power_loop_" << id << ":\n";
+            m_output << "    cmp rcx, 0\n";
+            m_output << "    je power_done_" << id << "\n";
+            m_output << "    imul rax, rbx\n";
+            m_output << "    dec rcx\n";
+            m_output << "    jmp power_loop_" << id << "\n";
+
+            m_output << "power_done_" << id << ":\n";
+
+            push("rax");
+        }
+        else if (std::holds_alternative<NodeInput>(expr.var)) {
+    const size_t id = m_input_count++;
+
+    // Read input from stdin.
+    m_output << "    xor rax, rax\n";
+    m_output << "    xor rdi, rdi\n";
+    m_output << "    lea rsi, [rel input_buffer]\n";
+    m_output << "    mov rdx, 64\n";
+    m_output << "    syscall\n";
+
+    m_output << "    cmp rax, 0\n";
+    m_output << "    jle input_empty_" << id << "\n";
+
+    // Save the number of characters read.
+    m_output << "    mov r9, rax\n";
+    m_output << "    lea r8, [rel input_buffer]\n";
+    m_output << "    xor r10, r10\n";  // index
+    m_output << "    xor r11, r11\n";  // result
+    m_output << "    mov r12, 1\n";    // sign
+
+    // Check for a negative number.
+    m_output << "    cmp byte [r8], '-'\n";
+    m_output << "    jne input_loop_" << id << "\n";
+    m_output << "    mov r12, -1\n";
+    m_output << "    inc r10\n";
+
+    // Convert decimal characters into an integer.
+    m_output << "input_loop_" << id << ":\n";
+    m_output << "    cmp r10, r9\n";
+    m_output << "    jge input_done_" << id << "\n";
+
+    m_output << "    movzx rcx, byte [r8 + r10]\n";
+
+    // Stop at newline or carriage return.
+    m_output << "    cmp cl, 10\n";
+    m_output << "    je input_done_" << id << "\n";
+    m_output << "    cmp cl, 13\n";
+    m_output << "    je input_done_" << id << "\n";
+
+    // Stop if the character isn't a decimal digit.
+    m_output << "    cmp cl, '0'\n";
+    m_output << "    jl input_done_" << id << "\n";
+    m_output << "    cmp cl, '9'\n";
+    m_output << "    jg input_done_" << id << "\n";
+
+    // result = result * 10 + digit
+    m_output << "    imul r11, r11, 10\n";
+    m_output << "    sub rcx, '0'\n";
+    m_output << "    add r11, rcx\n";
+
+    m_output << "    inc r10\n";
+    m_output << "    jmp input_loop_" << id << "\n";
+
+    m_output << "input_done_" << id << ":\n";
+    m_output << "    mov rax, r11\n";
+    m_output << "    imul rax, r12\n";
+    m_output << "    jmp input_finish_" << id << "\n";
+
+    m_output << "input_empty_" << id << ":\n";
+    m_output << "    xor rax, rax\n";
+
+    m_output << "input_finish_" << id << ":\n";
+    push("rax");
+}
+
+
     }
 
     // generates the code for one statement
@@ -396,7 +701,7 @@ public:
             pop("rdi");                        // the exit code
             m_output << "    syscall\n";
         }
-        else {
+        else if (std::holds_alternative<NodeStatementLet>(stmt.expr)) {
             const auto& s = std::get<NodeStatementLet>(stmt.expr);
             const std::string& name = s.identifier.value.value();
 
@@ -408,11 +713,56 @@ public:
             m_vars[name] = m_stack_size;       // the value will sit in this slot
             gen_expr(s.expr);                  // pushes it, and we just leave it there
         }
+        else if (std::holds_alternative<std::shared_ptr<NodeIf>>(stmt.expr)) {
+            const auto& if_node = *std::get<std::shared_ptr<NodeIf>>(stmt.expr);
+            const size_t id = m_if_count++;
+
+            // generate the condition; zero means false, nonzero means true
+            gen_expr(if_node.condition);
+            pop("rax");
+
+            m_output << "    cmp rax, 0\n";
+            m_output << "    je if_else_" << id << "\n";
+
+            // variables created inside a block stay inside that block
+            const size_t base_stack_size = m_stack_size;
+            const auto base_vars = m_vars;
+
+            for (const NodeStatements& inner_stmt : if_node.then_body) {
+                gen_stmt(inner_stmt);
+            }
+
+            if (m_stack_size > base_stack_size) {
+                m_output << "    add rsp, " << (m_stack_size - base_stack_size) * 8 << "\n";
+            }
+            m_stack_size = base_stack_size;
+            m_vars = base_vars;
+
+            m_output << "    jmp if_end_" << id << "\n";
+            m_output << "if_else_" << id << ":\n";
+
+            for (const NodeStatements& inner_stmt : if_node.else_body) {
+                gen_stmt(inner_stmt);
+            }
+
+            if (m_stack_size > base_stack_size) {
+                m_output << "    add rsp, " << (m_stack_size - base_stack_size) * 8 << "\n";
+            }
+            m_stack_size = base_stack_size;
+            m_vars = base_vars;
+
+            m_output << "if_end_" << id << ":\n";
+        }
     }
 
     // walks the tree and writes the assembly
     inline std::string generate() {
-        m_output << "global _start\n_start:\n";
+        m_output << "section .bss\n";
+        m_output << "input_buffer: resb 64\n";
+
+        m_output << "section .text\n";
+        m_output << "global _start\n";
+        m_output << "_start:\n";
 
         for (const NodeStatements& stmt : m_root.statements) {
             gen_stmt(stmt);
@@ -425,7 +775,6 @@ public:
 
         return m_output.str();
     }
-
 private:
     size_t m_abs_count = 0;
     size_t m_max_count = 0;
@@ -436,6 +785,12 @@ private:
     size_t m_prime_count = 0;
     size_t m_palindrome_count = 0;
     size_t m_n_fib_count = 0;
+    size_t m_stack_size = 0;
+    size_t m_random_count = 0;
+    size_t m_digitsum_count=0;
+    size_t m_power_count=0;
+    size_t m_if_count = 0;
+    size_t m_input_count = 0;
     void push(const std::string& reg) {
         m_output << "    push " << reg << "\n";
         m_stack_size++;
@@ -447,7 +802,7 @@ private:
     }
 
     const NodeProgram m_root;
-    std::stringstream m_output;
-    size_t m_stack_size = 0;  // number of 8 byte slots pushed
+    std::stringstream m_output;// number of 8 byte slots pushed
     std::unordered_map<std::string, size_t> m_vars;  // name -> stack slot
 };
+
