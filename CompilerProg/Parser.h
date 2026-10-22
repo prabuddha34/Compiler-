@@ -1,3 +1,4 @@
+
 #pragma once
 #include <cstdlib>
 #include <iostream>
@@ -12,8 +13,16 @@
 struct NodeIntLiteral {
     Token int_literal; //here it is the int ones !
 };
+struct NodeStringLiteral { //helps to get the string literal in my code- base !
+    Token string_literal;
+};
+struct NodeDoubleLiteral {
+    Token double_literal;
+}; //getting the double_literal!
+
 struct NodeInput {};
 struct NodeTimeUTC {};
+
 struct NodeIntIdentifier {
     Token identifier; //here it is the identifier!
 };
@@ -23,6 +32,7 @@ struct NodeExpression;
 struct NodeCountDigits {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeSum {
     std::vector<std::shared_ptr<NodeExpression>> args;
 };
@@ -35,57 +45,103 @@ struct NodeEqual {
 struct NodeEven {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeAbs {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeSqrt {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeFact {
     std::shared_ptr<NodeExpression> expr;
 };
+
+// NodeStatementPrint moved below NodeExpression because it is a statement!
+
 struct NodeDigitSum {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeNthFibonacci {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeMax {
     std::shared_ptr<NodeExpression> lhs;
     std::shared_ptr<NodeExpression> rhs;
 };
+
 struct NodeGCD {
     std::shared_ptr<NodeExpression> lhs;
     std::shared_ptr<NodeExpression> rhs;
 };
+
 struct NodeMidVal {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodePrime {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeMin {
     std::shared_ptr<NodeExpression> lhs;
     std::shared_ptr<NodeExpression> rhs;
 };
+
 struct NodePalindrome {
     std::shared_ptr<NodeExpression> expr;
 };
+
 struct NodeBinary {
     TokenType op;
     std::shared_ptr<NodeExpression> lhs;
     std::shared_ptr<NodeExpression> rhs;
 };
+
 struct NodeRandom {
     std::shared_ptr<NodeExpression> lhs;
     std::shared_ptr<NodeExpression> rhs;
 };
+
 struct NodePower {
     std::shared_ptr<NodeExpression> lhs;
     std::shared_ptr<NodeExpression> rhs;
 };
+
 struct NodeExpression {
-    std::variant<NodeIntLiteral, NodeIntIdentifier, NodeSum, NodeEven, NodeBinary, NodeAbs,NodeMax,NodeMin,NodeSqrt,NodeFact,NodeGCD,NodePrime,NodePalindrome,NodeNthFibonacci,NodeRandom,NodeMidVal,NodeDigitSum,NodeEqual,NodeTimeUTC,NodeCountDigits,NodePower,NodeInput> var; //varaint!
+    std::variant<
+        NodeIntLiteral,
+        NodeIntIdentifier,
+        NodeSum,
+        NodeEven,
+        NodeBinary,
+        NodeAbs,
+        NodeMax,
+        NodeMin,
+        NodeSqrt,
+        NodeFact,
+        NodeGCD,
+        NodePrime,
+        NodePalindrome,
+        NodeNthFibonacci,
+        NodeRandom,
+        NodeMidVal,
+        NodeDigitSum,
+        NodeEqual,
+        NodeTimeUTC,
+        NodeCountDigits,
+        NodePower,
+        NodeInput,
+        NodeDoubleLiteral,NodeStringLiteral
+    > var; //varaint!
+};
+
+// print is a statement, so it belongs here and not in NodeExpression!
+struct NodeStatementPrint {
+    NodeExpression expr;
 };
 
 struct NodeStatementExit {
@@ -98,9 +154,23 @@ struct NodeStatementLet {
 };
 
 struct NodeIf;
+struct NodeFor;
 
 struct NodeStatements {
-    std::variant<NodeStatementExit, NodeStatementLet, std::shared_ptr<NodeIf>> expr;
+    std::variant<
+        NodeStatementExit,
+        NodeStatementLet,
+        NodeStatementPrint,
+        std::shared_ptr<NodeIf>,
+        std::shared_ptr<NodeFor>
+    > expr;
+};
+
+struct NodeFor {
+    Token identifier;
+    NodeExpression start;
+    NodeExpression end;
+    std::vector<NodeStatements> body;
 };
 
 struct NodeIf {
@@ -228,6 +298,26 @@ public:
 
     //checking if the next token is an integer literal, identifier or function !
     std::optional<NodeExpression> parse_primary() {
+        //helps to get the string one !
+        // checking if the next token is a string literal
+        //checks for the string one !
+        if (peak().has_value() &&
+            peak().value().type == TokenType::string_literal) {
+
+            return NodeExpression{
+                .var = NodeStringLiteral{
+                    .string_literal = consume()
+                }
+            };
+            }
+        //for the double values !
+        if (peak().has_value() &&
+            peak().value().type == TokenType::double_literal) {
+            return NodeExpression{
+                .var = NodeDoubleLiteral{.double_literal = consume()}
+            };
+        }
+
         //checking if the next token is an integer literal !
         if (peak().has_value() &&
             peak().value().type == TokenType::int_literal) {
@@ -235,32 +325,41 @@ public:
                 .var = NodeIntLiteral{.int_literal = consume()}
             };
         }
-        if (peak().has_value() &&peak().value().type == TokenType::abs) {
+
+        if (peak().has_value() &&
+            peak().value().type == TokenType::abs) {
             consume();
+
             auto arg = parse_primary(); //parsing!
+
             if (!arg.has_value()) {
-                std::cerr << "Syntax error: expected a value after 'abs' "<<std::endl;
+                std::cerr << "Syntax error: expected a value after 'abs' "
+                          << std::endl;
                 //some kind of the error !
                 std::exit(EXIT_FAILURE); //exit and a failure!
             }
+
             return NodeExpression{ //the expression for it !
                 .var = NodeAbs{
                     std::make_shared<NodeExpression>(arg.value())
                 }
             };
-
         }
+
         //here we are getting the input () function
 
         //helps to get the gcd of the values!
-        if (peak().has_value() && peak().value().type ==TokenType::gcd) {
+        if (peak().has_value() &&
+            peak().value().type == TokenType::gcd) {
             //helps in the gcd of them!
             consume();
+
             if (!peak().has_value() ||
-    peak().value().type != TokenType::open_par) {
+                peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after gcd\n";
                 std::exit(EXIT_FAILURE);
             }
+
             //gets the first paren of them !
             consume();
 
@@ -271,7 +370,7 @@ public:
                 peak().value().type != TokenType::comma) {
                 std::cerr << "Syntax error: expected ',' in gcd\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // ,
 
@@ -282,7 +381,7 @@ public:
                 peak().value().type != TokenType::close_par) {
                 std::cerr << "Syntax error: expected ')' after gcd arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -292,8 +391,6 @@ public:
                     std::make_shared<NodeExpression>(rhs.value())
                 }
             };
-
-
         }
 
         //checking if the next token is an identifier !
@@ -347,9 +444,10 @@ public:
 
             return NodeExpression{.var = std::move(sum_node)};
         }
+
         //now giving the mid_val() --> function!
         if (peak().has_value() &&
-           peak().value().type == TokenType::mid_val) {
+            peak().value().type == TokenType::mid_val) {
 
             consume(); // gets the mid_val one !
 
@@ -365,7 +463,8 @@ public:
                     std::make_shared<NodeExpression>(arg.value())
                 }
             };
-           }
+        }
+
         //checking if the next token is even !
         if (peak().has_value() &&
             peak().value().type == TokenType::even) {
@@ -385,9 +484,10 @@ public:
                 }
             };
         }
+
         //now here  i am thinking to add the time -->utc one in here!
         if (peak().has_value() &&
-    peak().value().type == TokenType::time_utc) {
+            peak().value().type == TokenType::time_utc) {
 
             consume();
 
@@ -395,7 +495,7 @@ public:
                 peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after time_utc\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume();
 
@@ -403,14 +503,15 @@ public:
                 peak().value().type != TokenType::close_par) {
                 std::cerr << "Syntax error: time_utc takes no arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume();
 
             return NodeExpression{
                 .var = NodeTimeUTC{}
             };
-    }
+        }
+
         //now we will convert the input() function to input().int to convert the val be like integer to do the work!
         // input().int
         if (peak().has_value() &&
@@ -430,14 +531,14 @@ public:
 
                 std::cerr << "Syntax error: expected 'int' after input().\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // int
 
             return NodeExpression{
                 .var = NodeInput{}
             };
-            }
+        }
 
         //gets the node for the digit sum --> digit_sum(123)-->outputs ---> 1+2+3-->6-->answer!
         if (peak().has_value() &&
@@ -457,10 +558,11 @@ public:
                     std::make_shared<NodeExpression>(arg.value())
                 } //cals the value !
             };
-            }
+        }
+
         //here get the n-th term for the fibonacci vals
         if (peak().has_value() &&
-        peak().value().type == TokenType::n_fibonacci) {
+            peak().value().type == TokenType::n_fibonacci) {
 
             consume(); // fibonacci !
 
@@ -477,16 +579,18 @@ public:
                 }
             };
         }
+
         //now i am going to add the count the nodes for the count_digits()--> for ex --> count_digits(1234)-->gives the output be (4) as there are total 4 numbers!
         if (peak().has_value() &&
-    peak().value().type == TokenType::count_digits) {
+            peak().value().type == TokenType::count_digits) {
+
             consume();
 
             if (!peak().has_value() ||
                 peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after count_digits\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume();
 
@@ -497,7 +601,7 @@ public:
                 peak().value().type != TokenType::close_par) {
                 std::cerr << "Syntax error: expected ')' after argument\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume();
 
@@ -506,16 +610,19 @@ public:
                     std::make_shared<NodeExpression>(expr.value())
                 }
             };
-    }
+        }
+
         //now we have to find the prime check of them and print 1-->if it is true and 0 -->if is is false!
-        if (peak().has_value() && peak().value().type == TokenType::prime) {
+        if (peak().has_value() &&
+            peak().value().type == TokenType::prime) {
+
             consume();
 
             if (!peak().has_value() ||
                 peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after prime\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // (
 
@@ -526,7 +633,7 @@ public:
                 peak().value().type != TokenType::close_par) {
                 std::cerr << "Syntax error: expected ')' after argument\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -539,14 +646,16 @@ public:
 
         //CHECK for the palindrome number! over here we all know that palindrome number is something thay can be read same from both the backwards and forwards!
         //give -->1 if it is true else 0--> if false!
-        if (peak().has_value() && peak().value().type == TokenType::palindrome) {
+        if (peak().has_value() &&
+            peak().value().type == TokenType::palindrome) {
+
             consume();
 
             if (!peak().has_value() ||
                 peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after palindrome\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // (
 
@@ -557,7 +666,7 @@ public:
                 peak().value().type != TokenType::close_par) {
                 std::cerr << "Syntax error: expected ')' after argument\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -567,13 +676,17 @@ public:
                 }
             };
         }//here now we will
-        if (peak().has_value() && peak().value().type == TokenType::max) { //gets the max one !
+
+        if (peak().has_value() &&
+            peak().value().type == TokenType::max) { //gets the max one !
+
             consume();
+
             if (!peak().has_value() ||
-        peak().value().type != TokenType::open_par) {
+                peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after max\n";
                 std::exit(EXIT_FAILURE);
-        }
+            }
 
             consume(); // (
 
@@ -584,7 +697,7 @@ public:
                 peak().value().type != TokenType::comma) {
                 std::cerr << "Syntax error: expected two values separated by ','\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // ,consumes of it !
 
@@ -595,7 +708,7 @@ public:
                 peak().value().type != TokenType::close_par) { //gets the closing and opening !
                 std::cerr << "Syntax error: expected ')' after max arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -606,14 +719,18 @@ public:
                 }
             };
         }
+
         //now lets add the equal() function over here!
-        if (peak().has_value() && peak().value().type == TokenType::equal) { //gets the equal one !
+        if (peak().has_value() &&
+            peak().value().type == TokenType::equal) { //gets the equal one !
+
             consume();
+
             if (!peak().has_value() ||
-        peak().value().type != TokenType::open_par) {
+                peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after equal\n";
                 std::exit(EXIT_FAILURE);
-        }
+            }
 
             consume(); // (lol my erroe !
 
@@ -624,7 +741,7 @@ public:
                 peak().value().type != TokenType::comma) {
                 std::cerr << "Syntax error: expected two values separated by ','\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // ,consumes of it ! and a boring work!
 
@@ -635,7 +752,7 @@ public:
                 peak().value().type != TokenType::close_par) { //gets the closing and opening !
                 std::cerr << "Syntax error: expected ')' after max arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -646,14 +763,18 @@ public:
                 }
             };
         }
+
         //now we are trying to do the random function in my file!
-        if (peak().has_value() && peak().value().type == TokenType::random) { //gets the random !one !
+        if (peak().has_value() &&
+            peak().value().type == TokenType::random) { //gets the random !one !
+
             consume();
+
             if (!peak().has_value() ||
-        peak().value().type != TokenType::open_par) {
+                peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after random\n";
                 std::exit(EXIT_FAILURE);
-        }
+            }
 
             consume(); // (
 
@@ -664,7 +785,7 @@ public:
                 peak().value().type != TokenType::comma) {
                 std::cerr << "Syntax error: expected two values separated by ','\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // ,consumes of it !
 
@@ -675,7 +796,7 @@ public:
                 peak().value().type != TokenType::close_par) { //gets the closing and opening !
                 std::cerr << "Syntax error: expected ')' after rando arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -686,47 +807,49 @@ public:
                 }
             };
         }
+
         //now the function for the sqrt function for it!
-        if (peak().has_value() && peak().value().type == TokenType::sqrt) {
+        if (peak().has_value() &&
+            peak().value().type == TokenType::sqrt) {
 
-            //now the function for the sqrt function for it!
-            if (peak().has_value() && peak().value().type == TokenType::sqrt) {
-                consume(); // sqrt
+            consume(); // sqrt
 
-                if (!peak().has_value() ||
-                    peak().value().type != TokenType::open_par) {
-                    std::cerr << "Syntax error: expected '(' after sqrt\n";
-                    std::exit(EXIT_FAILURE);
-                    }
-
-                consume(); // (
-
-                auto arg = parse_expr();
-
-                if (!arg.has_value() ||
-                    !peak().has_value() ||
-                    peak().value().type != TokenType::close_par) {
-                    std::cerr << "Syntax error: expected ')' after sqrt argument\n";
-                    std::exit(EXIT_FAILURE);
-                    }
-
-                consume(); // )
-
-                return NodeExpression{
-                    .var = NodeSqrt{
-                        std::make_shared<NodeExpression>(arg.value())
-                    }
-                };
+            if (!peak().has_value() ||
+                peak().value().type != TokenType::open_par) {
+                std::cerr << "Syntax error: expected '(' after sqrt\n";
+                std::exit(EXIT_FAILURE);
             }
 
+            consume(); // (
+
+            auto arg = parse_expr();
+
+            if (!arg.has_value() ||
+                !peak().has_value() ||
+                peak().value().type != TokenType::close_par) {
+                std::cerr << "Syntax error: expected ')' after sqrt argument\n";
+                std::exit(EXIT_FAILURE);
+            }
+
+            consume(); // )
+
+            return NodeExpression{
+                .var = NodeSqrt{
+                    std::make_shared<NodeExpression>(arg.value())
+                }
+            };
         }
-        if (peak().has_value() && peak().value().type == TokenType::min) { //gets the max one !
+
+        if (peak().has_value() &&
+            peak().value().type == TokenType::min) { //gets the max one !
+
             consume();
+
             if (!peak().has_value() ||
-        peak().value().type != TokenType::open_par) {
+                peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after min\n";
                 std::exit(EXIT_FAILURE);
-        }
+            }
 
             consume(); // (
 
@@ -737,7 +860,7 @@ public:
                 peak().value().type != TokenType::comma) {
                 std::cerr << "Syntax error: expected two values separated by ','\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // ,consumes of it !
 
@@ -748,7 +871,7 @@ public:
                 peak().value().type != TokenType::close_par) { //gets the closing and opening !
                 std::cerr << "Syntax error: expected ')' after min arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -759,14 +882,18 @@ public:
                 }
             };
         }
+
         //here we will implement the power() function!
-        if (peak().has_value() && peak().value().type == TokenType::power) { //gets the powerone !
+        if (peak().has_value() &&
+            peak().value().type == TokenType::power) { //gets the powerone !
+
             consume();
+
             if (!peak().has_value() ||
-        peak().value().type != TokenType::open_par) {
+                peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after power()\n";
                 std::exit(EXIT_FAILURE);
-        }
+            }
 
             consume(); // (
 
@@ -777,7 +904,7 @@ public:
                 peak().value().type != TokenType::comma) {
                 std::cerr << "Syntax error: expected two values separated by ','\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // ,consumes of it !
 
@@ -788,7 +915,7 @@ public:
                 peak().value().type != TokenType::close_par) { //gets the closing and opening !
                 std::cerr << "Syntax error: expected ')' after power arguments\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -799,15 +926,18 @@ public:
                 }
             };
         }
+
         //gets the factorial value of it !
-        if (peak().has_value() && peak().value().type == TokenType::fact) {
+        if (peak().has_value() &&
+            peak().value().type == TokenType::fact) {
+
             consume(); // fact
 
             if (!peak().has_value() ||
                 peak().value().type != TokenType::open_par) {
                 std::cerr << "Syntax error: expected '(' after fact\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // (
 
@@ -818,7 +948,7 @@ public:
                 peak().value().type != TokenType::close_par) {
                 std::cerr << "Syntax error: expected ')' after fact argument\n";
                 std::exit(EXIT_FAILURE);
-                }
+            }
 
             consume(); // )
 
@@ -828,7 +958,6 @@ public:
                 }
             };
         }
-
 
         //checking if the expression is inside parentheses !
         if (peak().has_value() &&
@@ -858,6 +987,7 @@ public:
 
         while (peak().has_value() &&
                peak().value().type != TokenType::close_brace) {
+
             auto stmt = parse_stmt();
 
             if (!stmt.has_value()) {
@@ -872,12 +1002,85 @@ public:
         return statements;
     }
 
-    std::optional<NodeStatements> parse_stmt() {
+    std::optional<NodeStatements> parse_stmt() { //IMPORTTANT
+        if (peak().has_value() &&
+            peak().value().type == TokenType::print_keyword) { //print one very NEEDED
+
+            consume();
+
+            try_consume(TokenType::open_par, "expected '(' after print");
+
+            auto expr = parse_expr();
+
+            if (!expr.has_value()) {
+                std::cerr << "expected expression inside print\n";
+                std::exit(EXIT_FAILURE);
+            }
+
+            try_consume(TokenType::close_par, "expected ')' after print");
+            try_consume(TokenType::semicolon, "expected ';' after print");
+
+            return NodeStatements{
+                .expr = NodeStatementPrint{expr.value()}
+            };
+        }
+
+        // for (i = 0 to 5) { ... }
+        if (peak().has_value() &&
+            peak().value().type == TokenType::kw_for) {
+
+            consume(); // for
+
+            try_consume(TokenType::open_par, "expected '(' after for");
+
+            if (!peak().has_value() ||
+                peak().value().type != TokenType::identifier) {
+                std::cerr << "Syntax error: expected loop variable\n";
+                std::exit(EXIT_FAILURE);
+            }
+
+            Token identifier = consume();
+
+            try_consume(TokenType::assign, "expected '=' after loop variable");
+
+            auto start = parse_expr();
+
+            if (!start.has_value()) {
+                std::cerr << "Syntax error: expected starting value\n";
+                std::exit(EXIT_FAILURE);
+            }
+
+            try_consume(TokenType::kw_to, "expected 'to' after starting value");
+
+            auto end = parse_expr();
+
+            if (!end.has_value()) {
+                std::cerr << "Syntax error: expected ending value\n";
+                std::exit(EXIT_FAILURE);
+            }
+
+            try_consume(TokenType::close_par, "expected ')' after loop range");
+
+            auto body = parse_block();
+
+            auto node = std::make_shared<NodeFor>(
+                NodeFor{
+                    identifier,
+                    start.value(),
+                    end.value(),
+                    std::move(body)
+                }
+            );
+
+            return NodeStatements{.expr = node};
+        }
+
         // if (condition) { statements } else { statements }
         if (peak().has_value() &&
             peak().value().type == TokenType::if_keyword) {
 
             consume(); // if
+
             try_consume(TokenType::open_par, "expected '(' after if");
 
             auto condition = parse_expr();
@@ -894,6 +1097,7 @@ public:
 
             if (peak().has_value() &&
                 peak().value().type == TokenType::else_keyword) {
+
                 consume(); // else
                 else_body = parse_block();
             }

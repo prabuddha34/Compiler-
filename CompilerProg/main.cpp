@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
+#include <vector>
 #include "Generator.h"
 
 int main(int argc, char *argv[]) {

@@ -11,6 +11,7 @@
 enum class TokenType { //for now i have 3 things return (int) and a semicolon !
     _return, //keyword
     int_literal, //int one
+    double_literal, //getting the double one
     semicolon, exit, plus, minus, mul, division, //so i am just want to do the airthmetic ops in here!
     open_par, close_par, identifier, let, equal, sum, even, comma ,abs,max,min,sqrt,fact,gcd,prime,palindrome,
     n_fibonacci,random,mid_val,digit_sum,time_utc,count_digits,power,if_keyword,else_keyword,open_brace,
@@ -22,7 +23,12 @@ less,            // <
 greater,         // >
 less_equal,      // <=
 greater_equal,
-    input,dot
+    input,dot,
+    kw_for,
+kw_to,
+open_curly,
+close_curly,
+    print_keyword,string_literal
     //i forgot this !sorry ! 😢//i am a noob lol !
 };
 
@@ -178,6 +184,22 @@ public:
                     buff.clear();
                     continue;
                 }
+                else if (buff =="print") { //print() function!
+                    tokens.push_back(Token{TokenType::print_keyword});
+                    buff.clear();
+                    continue;
+                }
+                else if (buff =="for") { //getting the for loop
+                    tokens.push_back(Token{TokenType::kw_for});
+                    buff.clear();
+                    continue;
+                }
+
+                else if (buff =="to") { //getting the 'to' keyword!
+                    tokens.push_back(Token{TokenType::kw_to});
+                    buff.clear();
+                    continue;
+                }
                 else {
                     //not a keyword so it is a variable name!
                     tokens.push_back(Token{TokenType::identifier, buff});
@@ -185,18 +207,36 @@ public:
                     continue;
                 }
             }
-            else if (std::isdigit(static_cast<unsigned char>(peak().value()))) {
-                buff.push_back(consume()); //get the number here in her e 'exit 67; is my one !
+
+            else if (std::isdigit(static_cast<unsigned char>(peak().value()))) { //helps to get the .decimal value !
+                buff.push_back(consume());
 
                 while (peak().has_value() &&
                        std::isdigit(static_cast<unsigned char>(peak().value()))) {
                     buff.push_back(consume());
+                       }
+
+                if (peak().has_value() && peak().value() == '.' &&
+                    peak(1).has_value() &&
+                    std::isdigit(static_cast<unsigned char>(peak(1).value()))) {
+
+                    buff.push_back(consume());
+
+                    while (peak().has_value() &&
+                           std::isdigit(static_cast<unsigned char>(peak().value()))) {
+                        buff.push_back(consume());
+                           }
+
+                    tokens.push_back(Token{TokenType::double_literal, buff});
+                    }
+                else {
+                    tokens.push_back(Token{TokenType::int_literal, buff});
                 }
 
-                tokens.push_back(Token{TokenType::int_literal, buff}); //getting the integer literal!
-                buff.clear(); //clear the buffer!
-                continue; //continue our work!
+                buff.clear();
+                continue;
             }
+
             else if (peak().value() == '(') {
                 consume();
                 tokens.push_back(Token{TokenType::open_par});
@@ -240,6 +280,54 @@ public:
             else if (peak().value() == '.') { // . one for the type of the syntax that i want !
                 consume();
                 tokens.push_back(Token{TokenType::dot});
+                continue;
+            }
+            if (peak().value() == '"') {
+                consume(); // skip opening quote
+                buff.clear();
+
+                while (peak().has_value() && peak().value() != '"') {
+                    char c = consume();
+
+                    if (c == '\\') {
+                        if (!peak().has_value()) {
+                            std::cerr << "Error: Unterminated string!\n";
+                            std::exit(EXIT_FAILURE);
+                        }
+
+                        char escaped = consume();
+
+                        if (escaped == 'n') {
+                            buff.push_back('\n');
+                        }
+                        else if (escaped == 't') {
+                            buff.push_back('\t');
+                        }
+                        else if (escaped == '"') {
+                            buff.push_back('"');
+                        }
+                        else if (escaped == '\\') {
+                            buff.push_back('\\');
+                        }
+                        else {
+                            std::cerr << "Error: Invalid escape sequence!\n";
+                            std::exit(EXIT_FAILURE);
+                        }
+                    }
+                    else {
+                        buff.push_back(c);
+                    }
+                }
+
+                if (!peak().has_value()) {
+                    std::cerr << "Error: Missing closing quote!\n";
+                    std::exit(EXIT_FAILURE);
+                }
+
+                consume(); // skip closing quote
+
+                tokens.push_back(Token{TokenType::string_literal, buff});
+                buff.clear();
                 continue;
             }
 
