@@ -62,3 +62,6 @@ ld -o out out.o
 ./out
 echo $?
 ./baal */
+
+
+//Next job is to make function () and arrays in my langauge i will keep upto this !

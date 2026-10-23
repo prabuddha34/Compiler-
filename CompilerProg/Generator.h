@@ -66,6 +66,27 @@ public:
             size_t offset = (m_stack_size - it->second - 1) * 8;
             push("QWORD [rsp + " + std::to_string(offset) + "]");
         }
+        else if (std::holds_alternative<NodeArrayIndex>(expr.var)) {
+            const auto& a = std::get<NodeArrayIndex>(expr.var);
+
+            gen_expr(*a.index);
+            pop("rcx");                       // pop BEFORE computing offsets
+            gen_array_addr(a.identifier.value.value());
+            m_output << "    mov rax, [rbx]\n";
+            push("rax");
+        }
+        else if (std::holds_alternative<NodeLen>(expr.var)) {
+            const auto& l = std::get<NodeLen>(expr.var);
+
+            auto it = m_arrays.find(l.identifier.value.value());
+            if (it == m_arrays.end()) {
+                std::cerr << "Error: undeclared array: " << l.identifier.value.value() << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+
+            m_output << "    mov rax, " << it->second << "\n";
+            push("rax");
+        }
         else if (std::holds_alternative<NodeDigitSum>(expr.var)) {
             const auto& digit_sum = std::get<NodeDigitSum>(expr.var);
 
@@ -749,6 +770,43 @@ public:
             m_vars[name] = m_stack_size;       // the value will sit in this slot
             gen_expr(s.expr);                  // pushes it, and we just leave it there
         }
+        else if (std::holds_alternative<NodeStatementArrayLet>(stmt.expr)) {
+            const auto& s = std::get<NodeStatementArrayLet>(stmt.expr);
+            const std::string& name = s.identifier.value.value();
+
+            if (m_vars.count(name)) {
+                std::cerr << "Error: identifier already used: " << name << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+
+            const size_t base = m_stack_size;   // slot of element 0
+            size_t count = 0;
+
+            if (s.has_init) {
+                for (const auto& e : s.elements) {
+                    gen_expr(e);                // each leaves exactly one slot
+                    count++;
+                }
+            } else {
+                for (size_t i = 0; i < s.size; i++) {
+                    push("0");
+                    count++;
+                }
+            }
+
+            m_vars[name] = base;
+            m_arrays[name] = count;
+        }
+        else if (std::holds_alternative<NodeStatementArrayAssign>(stmt.expr)) {
+            const auto& s = std::get<NodeStatementArrayAssign>(stmt.expr);
+
+            gen_expr(s.value);
+            gen_expr(s.index);
+            pop("rcx");   // index
+            pop("rax");   // value
+            gen_array_addr(s.identifier.value.value());
+            m_output << "    mov [rbx], rax\n";
+        }
         else if (std::holds_alternative<std::shared_ptr<NodeIf>>(stmt.expr)) {
             const auto& if_node = *std::get<std::shared_ptr<NodeIf>>(stmt.expr);
             const size_t id = m_if_count++;
@@ -763,6 +821,7 @@ public:
             // variables created inside a block stay inside that block
             const size_t base_stack_size = m_stack_size;
             const auto base_vars = m_vars;
+            const auto base_arrays = m_arrays;
 
             for (const NodeStatements& inner_stmt : if_node.then_body) {
                 gen_stmt(inner_stmt);
@@ -773,6 +832,7 @@ public:
             }
             m_stack_size = base_stack_size;
             m_vars = base_vars;
+            m_arrays = base_arrays;
 
             m_output << "    jmp if_end_" << id << "\n";
             m_output << "if_else_" << id << ":\n";
@@ -786,6 +846,7 @@ public:
             }
             m_stack_size = base_stack_size;
             m_vars = base_vars;
+            m_arrays = base_arrays;
 
             m_output << "if_end_" << id << ":\n";
         }
@@ -802,6 +863,7 @@ public:
 
             const size_t base_stack_size = m_stack_size;
             const auto base_vars = m_vars;
+            const auto base_arrays = m_arrays;
 
             // Create the loop variable.
             gen_expr(for_node.start);
@@ -824,6 +886,7 @@ public:
             // Run the body. Clean up variables declared in the body each iteration.
             const size_t body_stack_size = m_stack_size;
             const auto body_vars = m_vars;
+            const auto body_arrays = m_arrays;
 
             for (const NodeStatements& inner_stmt : for_node.body) {
                 gen_stmt(inner_stmt);
@@ -835,6 +898,7 @@ public:
 
             m_stack_size = body_stack_size;
             m_vars = body_vars;
+            m_arrays = body_arrays;
 
             // Increment the loop variable.
             var_offset = (m_stack_size - m_vars[name] - 1) * 8;
@@ -851,6 +915,7 @@ public:
 
             m_stack_size = base_stack_size;
             m_vars = base_vars;
+            m_arrays = base_arrays;
         }
     }
 
@@ -871,6 +936,12 @@ public:
         // default exit(0) in case the program has no exit statement
         m_output << "    mov rax, 60\n";
         m_output << "    mov rdi, 0\n";
+        m_output << "    syscall\n";
+
+        // out of bounds array access lands here and exits with code 1
+        m_output << "array_oob:\n";
+        m_output << "    mov rax, 60\n";
+        m_output << "    mov rdi, 1\n";
         m_output << "    syscall\n";
 
         return m_output.str();
@@ -906,7 +977,31 @@ private:
         m_stack_size--;
     }
 
+    // expects the index in rcx and leaves the address of the element in rbx
+    // (also does the bounds check, out of range jumps to array_oob)
+    void gen_array_addr(const std::string& name) {
+        auto vit = m_vars.find(name);
+        auto ait = m_arrays.find(name);
+        if (vit == m_vars.end() || ait == m_arrays.end()) {
+            std::cerr << "Error: undeclared array: " << name << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        // bounds check
+        m_output << "    cmp rcx, 0\n";
+        m_output << "    jl array_oob\n";
+        m_output << "    cmp rcx, " << ait->second << "\n";
+        m_output << "    jge array_oob\n";
+
+        // address of element 0, then walk down 8 bytes per index
+        size_t offset = (m_stack_size - vit->second - 1) * 8;
+        m_output << "    lea rbx, [rsp + " << offset << "]\n";
+        m_output << "    shl rcx, 3\n";
+        m_output << "    sub rbx, rcx\n";
+    }
+
     NodeProgram m_root;
     std::stringstream m_output;
     std::unordered_map<std::string, size_t> m_vars;
+    std::unordered_map<std::string, size_t> m_arrays; // name -> length
 };

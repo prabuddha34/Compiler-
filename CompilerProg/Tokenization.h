@@ -28,7 +28,7 @@ greater_equal,
 kw_to,
 open_curly,
 close_curly,
-    print_keyword,string_literal
+    print_keyword,string_literal, open_bracket, close_bracket, //doing it for the array concept!
     //i forgot this !sorry ! 😢//i am a noob lol !
 };
 
@@ -352,6 +352,16 @@ public:
             else if (peak().value() == '}') {
                 consume();
                 tokens.push_back(Token{TokenType::close_brace});
+                continue;
+            }
+            else if (peak().value() == '[') { //getting [ for the starting of the array !
+                consume();
+                tokens.push_back(Token{TokenType::open_bracket});
+                continue;
+            }
+            else if (peak().value() == ']') { //closing one to close the box for it !
+                consume();
+                tokens.push_back(Token{TokenType::close_bracket});
                 continue;
             }
             else if (peak().value() == '=') {

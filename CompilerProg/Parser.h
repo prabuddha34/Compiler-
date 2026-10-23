@@ -1,4 +1,3 @@
-
 #pragma once
 #include <cstdlib>
 #include <iostream>
@@ -111,6 +110,15 @@ struct NodePower {
     std::shared_ptr<NodeExpression> rhs;
 };
 
+struct NodeArrayIndex {              // a[i] --> reads one element of the array!
+    Token identifier;
+    std::shared_ptr<NodeExpression> index;
+};
+
+struct NodeLen {                     // len(a) --> the length of the array!
+    Token identifier;
+};
+
 struct NodeExpression {
     std::variant<
         NodeIntLiteral,
@@ -135,7 +143,9 @@ struct NodeExpression {
         NodeCountDigits,
         NodePower,
         NodeInput,
-        NodeDoubleLiteral,NodeStringLiteral
+        NodeDoubleLiteral,NodeStringLiteral,
+        NodeArrayIndex,
+        NodeLen
     > var; //varaint!
 };
 
@@ -153,6 +163,19 @@ struct NodeStatementLet {
     NodeExpression expr;
 };
 
+struct NodeStatementArrayLet {       // let a = [1,2,3];  or  let a[5];
+    Token identifier;
+    std::vector<NodeExpression> elements; // used when has_init
+    size_t size = 0;                      // used when !has_init
+    bool has_init = false;
+};
+
+struct NodeStatementArrayAssign {    // a[i] = expr;
+    Token identifier;
+    NodeExpression index;
+    NodeExpression value;
+};
+
 struct NodeIf;
 struct NodeFor;
 
@@ -161,6 +184,8 @@ struct NodeStatements {
         NodeStatementExit,
         NodeStatementLet,
         NodeStatementPrint,
+        NodeStatementArrayLet,
+        NodeStatementArrayAssign,
         std::shared_ptr<NodeIf>,
         std::shared_ptr<NodeFor>
     > expr;
@@ -394,10 +419,41 @@ public:
         }
 
         //checking if the next token is an identifier !
+        //it can be a plain identifier, a[i] (array index) or len(a) (array length)!
         if (peak().has_value() &&
             peak().value().type == TokenType::identifier) {
+
+            Token id = consume();
+
+            // len(a)
+            if (id.value.value() == "len" &&
+                peak().has_value() && peak().value().type == TokenType::open_par) {
+                consume(); // (
+                if (!peak().has_value() || peak().value().type != TokenType::identifier) {
+                    std::cerr << "Syntax error: expected array name in len()\n";
+                    std::exit(EXIT_FAILURE);
+                }
+                Token arr = consume();
+                try_consume(TokenType::close_par, "expected ')' after len(...)");
+                return NodeExpression{ .var = NodeLen{ arr } };
+            }
+
+            // a[i]
+            if (peak().has_value() && peak().value().type == TokenType::open_bracket) {
+                consume(); // [
+                auto idx = parse_expr();
+                if (!idx.has_value()) {
+                    std::cerr << "Syntax error: expected index expression\n";
+                    std::exit(EXIT_FAILURE);
+                }
+                try_consume(TokenType::close_bracket, "expected ']'");
+                return NodeExpression{
+                    .var = NodeArrayIndex{ id, std::make_shared<NodeExpression>(idx.value()) }
+                };
+            }
+
             return NodeExpression{
-                .var = NodeIntIdentifier{.identifier = consume()}
+                .var = NodeIntIdentifier{.identifier = id}
             };
         }
 
@@ -1134,6 +1190,89 @@ public:
 
             return NodeStatements{
                 .expr = NodeStatementExit{.expr = node_expr.value()}
+            };
+        }
+
+        // let a = [1, 2, 3];
+        // this one has to be checked BEFORE the normal let, because the normal let would also match it!
+        if (peak().has_value() && peak().value().type == TokenType::let &&
+            peak(1).has_value() && peak(1).value().type == TokenType::identifier &&
+            peak(2).has_value() && peak(2).value().type == TokenType::assign &&
+            peak(3).has_value() && peak(3).value().type == TokenType::open_bracket) {
+
+            consume(); // let
+            Token ident = consume();
+            consume(); // =
+            consume(); // [
+
+            NodeStatementArrayLet node;
+            node.identifier = ident;
+            node.has_init = true;
+
+            if (peak().has_value() && peak().value().type != TokenType::close_bracket) {
+                while (true) {
+                    auto e = parse_expr();
+                    if (!e.has_value()) {
+                        std::cerr << "Syntax error: expected array element\n";
+                        std::exit(EXIT_FAILURE);
+                    }
+                    node.elements.push_back(e.value());
+                    if (peak().has_value() && peak().value().type == TokenType::comma) {
+                        consume();
+                        continue;
+                    }
+                    break;
+                }
+            }
+            try_consume(TokenType::close_bracket, "expected ']'");
+            try_consume(TokenType::semicolon, "expected ';'");
+            if (node.elements.empty()) {
+                std::cerr << "Syntax error: empty array literal\n";
+                std::exit(EXIT_FAILURE);
+            }
+            return NodeStatements{ .expr = node };
+        }
+
+        // let a[5];
+        if (peak().has_value() && peak().value().type == TokenType::let &&
+            peak(1).has_value() && peak(1).value().type == TokenType::identifier &&
+            peak(2).has_value() && peak(2).value().type == TokenType::open_bracket) {
+
+            consume(); // let
+            Token ident = consume();
+            consume(); // [
+            Token size_tok = try_consume(TokenType::int_literal, "expected array size");
+            try_consume(TokenType::close_bracket, "expected ']'");
+            try_consume(TokenType::semicolon, "expected ';'");
+
+            NodeStatementArrayLet node;
+            node.identifier = ident;
+            node.size = std::stoul(size_tok.value.value());
+            node.has_init = false;
+            return NodeStatements{ .expr = node };
+        }
+
+        // a[i] = expr;
+        if (peak().has_value() && peak().value().type == TokenType::identifier &&
+            peak(1).has_value() && peak(1).value().type == TokenType::open_bracket) {
+
+            Token ident = consume();
+            consume(); // [
+            auto idx = parse_expr();
+            if (!idx.has_value()) {
+                std::cerr << "Syntax error: expected index expression\n";
+                std::exit(EXIT_FAILURE);
+            }
+            try_consume(TokenType::close_bracket, "expected ']'");
+            try_consume(TokenType::assign, "expected '=' after array index");
+            auto val = parse_expr();
+            if (!val.has_value()) {
+                std::cerr << "Syntax error: expected value after '='\n";
+                std::exit(EXIT_FAILURE);
+            }
+            try_consume(TokenType::semicolon, "expected ';'");
+            return NodeStatements{
+                .expr = NodeStatementArrayAssign{ ident, idx.value(), val.value() }
             };
         }
 
