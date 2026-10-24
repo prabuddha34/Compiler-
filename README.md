@@ -22,11 +22,10 @@
 ![Dependencies](https://img.shields.io/badge/dependencies-none-blue)
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 
-[📘 Documentation](docs/DOCUMENTATION.md) ·
-[🧾 Syntax Cheat Sheet](docs/SYNTAX.md) ·
+[📘 Documentation](DOCUMENTATION.md) ·
+[🧾 Syntax Cheat Sheet](SYNTAX.md) ·
 [📦 Arrays](#-arrays) ·
 [🎮 Examples](#-examples) ·
-[🐞 Known Issues](docs/DOCUMENTATION.md#13-known-issues-and-fixes)
 
 </div>
 
