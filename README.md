@@ -7,9 +7,9 @@
 |  _  | |_| | |__| (_| | | | | (_| |
 |_| |_|\__, |_____\__,_|_| |_|\__, |
        |___/                  |___/
-```
+``` 
 
-# HyLang
+# HyLang 
 
 ### A tiny, number-loving language that compiles straight to x86-64 assembly.
 ### Built-in primes, palindromes, Fibonacci, GCD, **arrays**, loops and more. Source files end in `.hy`.
