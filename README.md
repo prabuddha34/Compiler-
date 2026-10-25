@@ -28,7 +28,7 @@
 
 > **HyLang** is a working name for the language whose files end in `.hy`. Note that an unrelated Lisp dialect on Python is also called "Hy", so you may want a more distinctive name before publishing. The compiler itself is the `CompilerProg` project.
 
----
+---  
 
 ## 📑 Table of Contents
 
